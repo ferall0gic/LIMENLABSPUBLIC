@@ -1,0 +1,37 @@
+# Built-in "default" profile for 3dm-inspect v0.1.
+# An office profile only needs the keys it changes; everything else
+# comes from the profile named in `extends` (default: "default").
+
+[profile]
+name = "default"
+
+[rules.validity]
+# openNURBS IsValidWithLog on every object.
+enabled = true
+severity = "error"
+
+[rules.document]
+# Model units, absolute tolerance, angle tolerance.
+enabled = true
+severity = "warning"
+allowed_units = []                 # empty = any unit system except "none"
+absolute_tolerance_min = 0.0001    # in model units
+absolute_tolerance_max = 0.01      # in model units
+# angle_tolerance_min_degrees = 0.1   (unset = not checked)
+# angle_tolerance_max_degrees = 5.0   (unset = not checked)
+
+[rules.mesh]
+# Off in the default profile; on in "strict".
+enabled = false
+severity = "warning"
+require_closed = true
+require_manifold = true
+
+[rules.layers]
+enabled = true
+severity = "warning"
+name_pattern = ""                  # regex each layer name must match; "" = no naming convention
+flag_empty_layers = true
+flag_objects_without_layer = true
+flag_objects_on_default_layer = false
+default_layer_names = ["Default"]

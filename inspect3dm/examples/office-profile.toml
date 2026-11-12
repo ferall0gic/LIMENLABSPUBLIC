@@ -1,0 +1,23 @@
+# Example office profile for 3dm-inspect.
+# Use with:  3dm-inspect exports/ --profile examples/office-profile.toml
+# Only the keys you list here change; the rest come from `extends`.
+
+[profile]
+name = "example-office"
+extends = "default"
+
+[rules.document]
+allowed_units = ["millimeters", "meters"]
+absolute_tolerance_min = 0.001
+absolute_tolerance_max = 0.01
+angle_tolerance_min_degrees = 0.1
+angle_tolerance_max_degrees = 2.0
+
+[rules.mesh]
+enabled = true            # meshes must be closed and manifold
+severity = "warning"
+
+[rules.layers]
+# AIA-style names such as A-WALL or A-WALL-EXTR (each layer level is checked).
+name_pattern = '^[A-Z]-[A-Z0-9]+(-[A-Z0-9]+)*$'
+flag_objects_on_default_layer = true

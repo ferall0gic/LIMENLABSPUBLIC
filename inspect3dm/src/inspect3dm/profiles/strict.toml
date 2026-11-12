@@ -1,0 +1,12 @@
+# Built-in "strict" profile: default plus mesh checks and default-layer checks.
+
+[profile]
+name = "strict"
+extends = "default"
+
+[rules.mesh]
+enabled = true
+severity = "error"
+
+[rules.layers]
+flag_objects_on_default_layer = true

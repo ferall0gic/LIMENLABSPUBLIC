@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inspect3dm"
+version = "0.1.0"
+description = "Headless, rule-based inspector for Rhino .3dm files"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = [
+    "rhino3dm>=8,<9",
+    "tomli>=1.1; python_version < '3.11'",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Intended Audience :: Developers",
+    "Topic :: Multimedia :: Graphics",
+]
+
+[project.urls]
+Homepage = "https://github.com/ferall0gic/LIMENLABSPUBLIC"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+3dm-inspect = "inspect3dm.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+inspect3dm = ["profiles/*.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
