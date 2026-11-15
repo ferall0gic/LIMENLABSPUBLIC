@@ -4,7 +4,7 @@ Installs the ``3dm-inspect`` command. Validity is checked with openNURBS
 (via rhino3dm) and may differ from Rhino's Check command.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 TOOL_NAME = "3dm-inspect"
 VALIDATION_BASIS = "openNURBS via rhino3dm; may differ from Rhino Check"
 

@@ -16,14 +16,18 @@ from .report import FOOTER, RHINO3DM_VERSION, render_json, render_markdown, rend
 DESCRIPTION = f"""\
 Inspect Rhino .3dm files against a rule profile, without Rhino, and report
 problems as Markdown (default) or JSON. Checks: object validity, model units
-and tolerances, mesh closed/manifold (strict profile), and layer hygiene.
-<path> is a .3dm file or a folder; folders are searched recursively for *.3dm.
+and tolerances, mesh closed/manifold (strict profile), layer hygiene, and
+(revit profile) short edges and far-from-origin geometry against known Revit
+import limits. <path> is a .3dm file or a folder; folders are searched
+recursively for *.3dm.
 """
 
 EPILOG = f"""\
 options in detail:
   --profile NAME|FILE   Built-in profile ({', '.join(BUILTIN_PROFILES)}) or a .toml profile file.
                         Example: {TOOL_NAME} model.3dm --profile strict
+                        Example: {TOOL_NAME} model.3dm --profile revit
+  --list-profiles       List the built-in profiles and exit.
   --format md|json      Report format. Default: md. If omitted, inferred from an
                         --output file ending in .md or .json.
                         Example: {TOOL_NAME} exports/ --format json
@@ -65,6 +69,14 @@ file status is pass, fail, or unreadable. Finding severity is error or warning.
 """
 
 
+PROFILE_SUMMARIES = {
+    "default": "validity, units and tolerance, layer hygiene",
+    "strict": "default plus closed/manifold meshes and objects on the default layer",
+    "revit": "default plus known Revit import limits: short edges and curves (~0.79 mm), "
+             "distance from origin (10 mi) and model extents (20 mi), units required, tolerance",
+}
+
+
 class UsageError(Exception):
     pass
 
@@ -86,7 +98,7 @@ def _build_parser() -> _Parser:
     )
     p.add_argument("paths", nargs="*", metavar="path", help=".3dm file or folder (searched recursively)")
     p.add_argument("--profile", metavar="NAME|FILE", default=None,
-                   help="rule profile: default, strict, or a .toml file (default: default)")
+                   help="rule profile: default, strict, revit, or a .toml file (default: default)")
     p.add_argument("--format", choices=("md", "json"), default=None, help="report format (default: md)")
     p.add_argument("--fail-on", choices=("error", "warning", "never"), default="error",
                    help="severity that makes the run exit 1 (default: error)")
@@ -95,6 +107,7 @@ def _build_parser() -> _Parser:
     p.add_argument("--no-color", action="store_true", help="disable color (NO_COLOR is also honored)")
     p.add_argument("--help", "-h", action="store_true", help="show this help and exit")
     p.add_argument("--version", action="store_true", help="show tool and rhino3dm versions and exit")
+    p.add_argument("--list-profiles", action="store_true", help="list the built-in profiles and exit")
     return p
 
 
@@ -145,6 +158,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return 0
         if args.version:
             out.write(f"{TOOL_NAME} {__version__} (rhino3dm {RHINO3DM_VERSION})\n")
+            return 0
+        if args.list_profiles:
+            for name in BUILTIN_PROFILES:
+                out.write(f"{name}: {PROFILE_SUMMARIES[name]}\n")
             return 0
         for extra in extras:
             if extra.startswith("-"):

@@ -1,0 +1,14 @@
+# Example office profile that builds on the built-in "revit" profile.
+# Use with:  3dm-inspect exports/ --profile examples/revit-office-profile.toml
+# Only the keys you list here change; the rest come from "revit".
+
+[profile]
+name = "revit-office"
+extends = "revit"
+
+[rules.short_edges]
+min_length_mm = 0.8        # what `app.ShortCurveTolerance` reports in your Revit, converted to mm
+include_curves = false     # only Brep edges; loose curves are not sent to Revit here
+
+[rules.extents]
+severity = "error"         # make stray far-away objects fail the CI gate

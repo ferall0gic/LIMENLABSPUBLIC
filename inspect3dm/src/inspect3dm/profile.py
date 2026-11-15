@@ -1,7 +1,7 @@
 """Rule profiles: loading, merging, and validation.
 
-A profile is a small TOML file. Built-in profiles are ``default`` and
-``strict``; an office profile lists only the keys it changes and inherits
+A profile is a small TOML file. Built-in profiles are ``default``,
+``strict`` and ``revit``; an office profile lists only the keys it changes and inherits
 the rest via ``[profile] extends = "default"`` (the default).
 """
 
@@ -20,7 +20,7 @@ if sys.version_info >= (3, 11):
 else:  # pragma: no cover - exercised on Python 3.10 only
     import tomli as tomllib
 
-BUILTIN_PROFILES = ("default", "strict")
+BUILTIN_PROFILES = ("default", "strict", "revit")
 SEVERITIES = ("error", "warning")
 
 # Schema: section -> key -> (accepted python types, description of type)
@@ -37,6 +37,22 @@ _SCHEMA: dict[str, dict[str, tuple[tuple[type, ...], str]]] = {
         "absolute_tolerance_max": ((int, float), "a number"),
         "angle_tolerance_min_degrees": ((int, float), "a number"),
         "angle_tolerance_max_degrees": ((int, float), "a number"),
+        "absolute_tolerance_min_mm": ((int, float), "a number"),
+        "absolute_tolerance_max_mm": ((int, float), "a number"),
+        "tolerance_severity": ((str,), '"error" or "warning"'),
+    },
+    "short_edges": {
+        "enabled": ((bool,), "true or false"),
+        "severity": ((str,), '"error" or "warning"'),
+        "min_length_mm": ((int, float), "a number"),
+        "include_curves": ((bool,), "true or false"),
+        "near_band": ((int, float), "a number"),
+    },
+    "extents": {
+        "enabled": ((bool,), "true or false"),
+        "severity": ((str,), '"error" or "warning"'),
+        "max_distance_from_origin_mm": ((int, float), "a number"),
+        "max_total_extent_mm": ((int, float), "a number"),
     },
     "mesh": {
         "enabled": ((bool,), "true or false"),
@@ -128,9 +144,9 @@ def _validate(rules: dict[str, Any], where: str) -> None:
                 raise ProfileError(
                     f"Profile {where}: [rules.{section}] {key} must be {desc}, not {value!r}."
                 )
-            if key == "severity" and value not in SEVERITIES:
+            if key in ("severity", "tolerance_severity") and value not in SEVERITIES:
                 raise ProfileError(
-                    f"Profile {where}: [rules.{section}] severity must be \"error\" or \"warning\", not {value!r}."
+                    f"Profile {where}: [rules.{section}] {key} must be \"error\" or \"warning\", not {value!r}."
                 )
             if key in ("allowed_units", "default_layer_names"):
                 if not all(isinstance(v, str) for v in value):
@@ -151,7 +167,7 @@ def _validate(rules: dict[str, Any], where: str) -> None:
                     raise ProfileError(
                         f"Profile {where}: [rules.layers] name_pattern is not a valid regular expression ({exc})."
                     ) from None
-            if key.endswith(("_min", "_max", "_degrees")) and value < 0:
+            if key.endswith(("_min", "_max", "_degrees", "_mm", "near_band")) and value < 0:
                 raise ProfileError(f"Profile {where}: [rules.{section}] {key} must not be negative.")
 
 
@@ -160,6 +176,7 @@ def _check_ranges(rules: dict[str, Any], where: str) -> None:
     for lo_key, hi_key in (
         ("absolute_tolerance_min", "absolute_tolerance_max"),
         ("angle_tolerance_min_degrees", "angle_tolerance_max_degrees"),
+        ("absolute_tolerance_min_mm", "absolute_tolerance_max_mm"),
     ):
         lo, hi = doc.get(lo_key), doc.get(hi_key)
         if lo is not None and hi is not None and lo > hi:

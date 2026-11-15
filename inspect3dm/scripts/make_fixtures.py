@@ -189,6 +189,108 @@ FIXTURES = {
 }
 
 
+# ---- v0.2 "revit" profile fixtures ---------------------------------------------
+
+def _box(m, layer_index, x0, y0, z0, dx, dy, dz):
+    brep = r.Brep.CreateFromBoundingBox(r.BoundingBox(x0, y0, z0, x0 + dx, y0 + dy, z0 + dz))
+    return m.Objects.AddBrep(brep, _attrs(layer_index))
+
+
+def revit_clean_model():
+    """1 x 2 x 3 m box, meters, 0.01 mm tolerance: no findings in the revit profile."""
+    m = _model(units=r.UnitSystem.Meters, tol=0.00001)
+    _box(m, _layer(m, "A-MASS"), 0, 0, 0, 1, 2, 3)
+    return m
+
+
+def revit_unitless_model():
+    m = _model(units=getattr(r.UnitSystem, "None"))
+    _box(m, _layer(m, "A-MASS"), 0, 0, 0, 1000, 2000, 3000)
+    return m
+
+
+def revit_short_edge_mm_model():
+    """10 x 10 x 0.5 mm slab: its four vertical edges are 0.5 mm long."""
+    m = _model()
+    _box(m, _layer(m, "A-MASS"), 0, 0, 0, 10, 10, 0.5)
+    return m
+
+
+def revit_near_edge_mm_model():
+    """10 x 10 x 0.8 mm slab: four 0.8 mm edges, just above the 0.79375 mm minimum."""
+    m = _model()
+    _box(m, _layer(m, "A-MASS"), 0, 0, 0, 10, 10, 0.8)
+    return m
+
+
+def revit_short_curve_m_model():
+    """Meters file with a loose 0.0005 m (0.5 mm) line."""
+    m = _model(units=r.UnitSystem.Meters, tol=0.00001)
+    _line(m, _layer(m, "A-DETL"), (0, 0, 0), (0.0005, 0, 0))
+    return m
+
+
+def revit_short_polyline_segment_model():
+    """Polyline whose last segment is 0.3 mm long (two segments, one short)."""
+    m = _model()
+    pl = r.Polyline()
+    for p in ((0, 0, 0), (100, 0, 0), (100, 0.3, 0)):
+        pl.Add(*p)
+    m.Objects.AddPolyline(pl, _attrs(_layer(m, "A-DETL")))
+    return m
+
+
+def revit_short_extrusion_model():
+    """Cylinder extrusion r = 5 mm, height 0.5 mm: the seam edge is 0.5 mm."""
+    m = _model()
+    ext = r.Extrusion.Create(r.Circle(5.0).ToNurbsCurve(), 0.5, True)
+    m.Objects.AddExtrusion(ext, _attrs(_layer(m, "A-MASS")))
+    return m
+
+
+def revit_far_model():
+    """mm file: one box at the origin and one 1 m box 20 km away on X."""
+    m = _model()
+    lay = _layer(m, "A-MASS")
+    _box(m, lay, 0, 0, 0, 1000, 1000, 1000)
+    _box(m, lay, 20_000_000, 0, 0, 1000, 1000, 1000)
+    return m
+
+
+def revit_span_model():
+    """mm file: four 1 m boxes 15 km from the origin on +/-X and +/-Y.
+
+    Each is inside the 10-mile (16.09 km) limit, but the model's bounding-box
+    diagonal is about 42 km, beyond the 20-mile (32.19 km) extent limit.
+    """
+    m = _model()
+    lay = _layer(m, "A-MASS")
+    for x, y in ((15_000_000, 0), (-15_001_000, 0), (0, 15_000_000), (0, -15_001_000)):
+        _box(m, lay, x, y, 0, 1000, 1000, 1000)
+    return m
+
+
+def revit_tolerance_model():
+    """mm file with 0.1 mm absolute tolerance (above 1/10 of ~0.79 mm)."""
+    m = _model(tol=0.1)
+    _box(m, _layer(m, "A-MASS"), 0, 0, 0, 1000, 1000, 1000)
+    return m
+
+
+REVIT_FIXTURES = {
+    "revit_clean.3dm": revit_clean_model,
+    "revit_unitless.3dm": revit_unitless_model,
+    "revit_short_edge_mm.3dm": revit_short_edge_mm_model,
+    "revit_near_edge_mm.3dm": revit_near_edge_mm_model,
+    "revit_short_curve_m.3dm": revit_short_curve_m_model,
+    "revit_short_polyline_segment.3dm": revit_short_polyline_segment_model,
+    "revit_short_extrusion.3dm": revit_short_extrusion_model,
+    "revit_far.3dm": revit_far_model,
+    "revit_span.3dm": revit_span_model,
+    "revit_tolerance.3dm": revit_tolerance_model,
+}
+
+
 def write(model, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     if not model.Write(str(path), ARCHIVE_VERSION):
@@ -198,7 +300,8 @@ def write(model, path: Path) -> Path:
 
 def build_all(outdir: Path) -> dict[str, Path]:
     outdir = Path(outdir)
-    return {name: write(fn(), outdir / name) for name, fn in FIXTURES.items()}
+    every = {**FIXTURES, **REVIT_FIXTURES}
+    return {name: write(fn(), outdir / name) for name, fn in every.items()}
 
 
 def build_sample(path: Path) -> Path:

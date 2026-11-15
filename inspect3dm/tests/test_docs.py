@@ -54,7 +54,8 @@ def test_license_file_is_mit():
 
 
 def test_readme_documents_known_limitations():
-    assert "v0.1 has been run and tested on Linux only" in README
+    assert "v0.2 has been run and tested on Linux only" in README
+    assert "it has not been checked against imports in Revit" in README
     assert "Windows and macOS should install via `rhino3dm` wheels but are untested" in README
     assert "Large (5–10 GB) files are untested" in README
     assert "Parity has not been tested on a Rhino host" in README
@@ -73,3 +74,17 @@ def test_readme_sample_output_matches_real_run(run_cli, monkeypatch):
     code, out, _ = run_cli("samples/sample.3dm")
     assert code == 1
     assert out.rstrip("\n") in README
+
+
+def test_readme_revit_section_is_honest_about_sources():
+    section = README.split("## Checking files for Revit", 1)[1].split("\n## ", 1)[0]
+    assert "the 1/32 in figure comes from Autodesk forum posts and a developer blog" in section
+    assert "It has not been run against Revit" in section
+    assert "About the Maximum Distance Limit" in section
+    assert "guarantee" not in section.lower()
+
+
+def test_changelog_has_current_version():
+    from inspect3dm import __version__
+    changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert f"## {__version__} " in changelog

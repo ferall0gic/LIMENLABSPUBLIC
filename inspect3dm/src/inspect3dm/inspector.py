@@ -11,8 +11,9 @@ from typing import Any, Iterable
 
 import rhino3dm
 
+from .geometry_metrics import curve_length_bounds, midpoint
 from .profile import Profile
-from .units import degrees_str, length_str, unit_name, unit_display
+from .units import degrees_str, length_str, mm_per_unit, sig_str, unit_name, unit_display
 
 SEVERITY_ORDER = {"error": 0, "warning": 1}
 
@@ -21,6 +22,9 @@ NEXT_STEPS = {
     "validity": ("Check", "SelBadObjects"),
     "mesh_not_closed": ("CheckMesh", "MeshRepair"),
     "mesh_non_manifold": ("CheckMesh", "MeshRepair"),
+    "short_edges": ("ShowEdges", "MergeAllEdges", "RebuildEdges"),
+    "short_edges_unmeasured": ("ShowEdges",),
+    "extents": ("Zoom", "Move"),
 }
 
 
@@ -32,9 +36,14 @@ class Finding:
     object_id: str | None = None
     object_type: str | None = None
     layer: str | None = None
+    # v0.2 measured-value fields; present in JSON only when set.
+    measured: float | None = None   # in model units
+    threshold: float | None = None  # in model units
+    units: str | None = None
+    certainty: str | None = None    # "certain" | "uncertain" | "near_threshold"
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        d: dict[str, Any] = {
             "severity": self.severity,
             "rule": self.rule,
             "object_id": self.object_id,
@@ -42,6 +51,11 @@ class Finding:
             "layer": self.layer,
             "message": self.message,
         }
+        for key in ("measured", "threshold", "units", "certainty"):
+            value = getattr(self, key)
+            if value is not None:
+                d[key] = value
+        return d
 
 
 @dataclass
@@ -216,6 +230,11 @@ def _layer_paths(model) -> list[tuple[int, str, str, str]]:
     return out
 
 
+def _tidy(value: float) -> float:
+    """Round a unit-converted threshold to 9 significant figures for display."""
+    return float(f"{value:.9g}")
+
+
 def _check_document(model, rules: dict[str, Any], res: FileResult) -> list[Finding]:
     sev = rules["severity"]
     out: list[Finding] = []
@@ -228,16 +247,26 @@ def _check_document(model, rules: dict[str, Any], res: FileResult) -> list[Findi
         out.append(Finding(sev, "units", f"Model units are {unit}; this profile allows {', '.join(allowed)}."))
 
     tol = res.absolute_tolerance
+    tsev = rules.get("tolerance_severity") or sev
     lo, hi = rules.get("absolute_tolerance_min"), rules.get("absolute_tolerance_max")
+    lo_note = hi_note = ""
+    scale = mm_per_unit(unit)
+    # An *_mm key replaces the model-unit key on the same side when units are known.
+    if scale is not None:
+        lo_mm, hi_mm = rules.get("absolute_tolerance_min_mm"), rules.get("absolute_tolerance_max_mm")
+        if lo_mm is not None:
+            lo, lo_note = lo_mm / scale, ("" if unit == "millimeters" else f" ({sig_str(lo_mm, 6)} mm)")
+        if hi_mm is not None:
+            hi, hi_note = hi_mm / scale, ("" if unit == "millimeters" else f" ({sig_str(hi_mm, 6)} mm)")
     if tol is not None:
         if lo is not None and tol < lo:
-            out.append(Finding(sev, "tolerance_range",
+            out.append(Finding(tsev, "tolerance_range",
                                f"Absolute tolerance {length_str(tol, unit)} is below the configured minimum of "
-                               f"{length_str(lo, unit)}."))
+                               f"{length_str(_tidy(lo), unit)}{lo_note}."))
         elif hi is not None and tol > hi:
-            out.append(Finding(sev, "tolerance_range",
+            out.append(Finding(tsev, "tolerance_range",
                                f"Absolute tolerance {length_str(tol, unit)} is above the configured maximum of "
-                               f"{length_str(hi, unit)}."))
+                               f"{length_str(_tidy(hi), unit)}{hi_note}."))
 
     ang = res.angle_tolerance_degrees
     alo, ahi = rules.get("angle_tolerance_min_degrees"), rules.get("angle_tolerance_max_degrees")
@@ -361,6 +390,147 @@ def _check_layers(rows, layers, rules) -> list[Finding]:
     return out
 
 
+# ---------------------------------------------------------------- v0.2 rules (mm-based)
+
+def _fmt_pt(p) -> str:
+    return "(" + ", ".join(sig_str(c, 6) for c in p) + ")"
+
+
+def _measurable_curves(geom, include_curves: bool):
+    """Yield (label, curve) pairs to measure, or (label, None) when a part cannot be read."""
+    if isinstance(geom, rhino3dm.Extrusion):
+        try:
+            geom = geom.ToBrep(False)
+        except Exception:
+            geom = None
+        if geom is None:
+            yield "extrusion (could not convert to a Brep)", None
+            return
+    if isinstance(geom, rhino3dm.Brep):
+        edges = geom.Edges
+        for i in range(len(edges)):
+            try:
+                yield f"edge {i}", edges[i]
+            except Exception:
+                yield f"edge {i}", None
+        return
+    if not include_curves or not isinstance(geom, rhino3dm.Curve):
+        return
+    if isinstance(geom, rhino3dm.PolyCurve):
+        for i in range(geom.SegmentCount):
+            yield f"segment {i}", geom.SegmentCurve(i)
+        return
+    if isinstance(geom, rhino3dm.PolylineCurve):
+        n = geom.PointCount
+        if n > 2:
+            for i in range(n - 1):
+                a, b = geom.Point(i), geom.Point(i + 1)
+                yield f"segment {i}", rhino3dm.LineCurve(a, b)
+            return
+    yield "curve", geom
+
+
+def _check_short_edges(rows, rules, scale: float, unit: str) -> list[Finding]:
+    sev = rules["severity"]
+    min_mm = float(rules.get("min_length_mm", 0.79375))
+    band = float(rules.get("near_band", 0.10))
+    include_curves = rules.get("include_curves", True)
+    lim = min_mm / scale          # model units
+    lim_band = lim * (1.0 + band)
+    out: list[Finding] = []
+    for _obj, geom, oid, otype, _idx, layer in rows:
+        if geom is None:
+            continue
+        for label, crv in _measurable_curves(geom, include_curves):
+            if crv is None:
+                out.append(Finding("warning", "short_edges_unmeasured",
+                                   f"{label.capitalize()} could not be read, so its length was not checked.",
+                                   oid, otype, layer))
+                continue
+            try:
+                lo, hi = curve_length_bounds(crv)
+                if lo < lim_band:
+                    lo, hi = curve_length_bounds(crv, refine=4)
+                mid = midpoint(crv)
+            except Exception as exc:
+                out.append(Finding("warning", "short_edges_unmeasured",
+                                   f"{label.capitalize()} could not be measured ({type(exc).__name__}), "
+                                   "so its length was not checked.", oid, otype, layer))
+                continue
+            if lo >= lim_band:
+                continue
+            where = f"Midpoint {_fmt_pt(mid)}."
+            if hi is not None and hi < lim:
+                msg = (f"{label.capitalize()} is {_len_with_mm(lo, scale, unit)} long, "
+                       f"shorter than the minimum of {sig_str(min_mm, 6)} mm. {where}")
+                out.append(Finding(sev, "short_edges", msg, oid, otype, layer,
+                                   measured=_round(lo), threshold=_round(lim), units=unit, certainty="certain"))
+            elif lo < lim:
+                hi_txt = "an unbounded length" if hi is None else f"{sig_str(hi * scale)} mm"
+                msg = (f"{label.capitalize()} length is between {sig_str(lo * scale)} mm and {hi_txt}, "
+                       f"so it may be shorter than the minimum of {sig_str(min_mm, 6)} mm. {where}")
+                out.append(Finding(sev, "short_edges", msg, oid, otype, layer,
+                                   measured=_round(lo), threshold=_round(lim), units=unit, certainty="uncertain"))
+            else:
+                msg = (f"{label.capitalize()} is about {sig_str(lo * scale)} mm long, within "
+                       f"{sig_str(band * 100)}% above the minimum of {sig_str(min_mm, 6)} mm. {where}")
+                out.append(Finding("warning", "short_edges", msg, oid, otype, layer,
+                                   measured=_round(lo), threshold=_round(lim), units=unit,
+                                   certainty="near_threshold"))
+    return out
+
+
+def _len_with_mm(value: float, scale: float, unit: str) -> str:
+    """'0.0005 meters (0.5 mm)', or just '0.5 millimeters' for mm files."""
+    text = length_str(_round(value), unit)
+    return text if unit == "millimeters" else f"{text} ({sig_str(value * scale)} mm)"
+
+
+def _round(value: float) -> float:
+    return float(f"{value:.9g}")
+
+
+def _check_extents(rows, rules, scale: float, unit: str) -> list[Finding]:
+    sev = rules["severity"]
+    max_d_mm = float(rules.get("max_distance_from_origin_mm", 16093440.0))
+    max_t_mm = float(rules.get("max_total_extent_mm", 32186880.0))
+    max_d, max_t = max_d_mm / scale, max_t_mm / scale
+    out: list[Finding] = []
+    union = None
+    for _obj, geom, oid, otype, _idx, layer in rows:
+        if geom is None:
+            continue
+        try:
+            bb = geom.GetBoundingBox()  # no-arg form; GetBoundingBox(True) raises (rhino3dm#721)
+        except Exception:
+            continue
+        if bb is None or not bb.IsValid:
+            continue
+        lo, hi = bb.Min, bb.Max
+        far = math.sqrt(sum(max(abs(a), abs(b)) ** 2 for a, b in ((lo.X, hi.X), (lo.Y, hi.Y), (lo.Z, hi.Z))))
+        if far > max_d:
+            out.append(Finding(
+                sev, "extents",
+                f"Object reaches {length_str(_round(far), unit)} ({sig_str(far * scale / 1e6)} km) from the "
+                f"world origin, beyond the limit of {sig_str(max_d_mm / 1e6)} km. Bounding box "
+                f"{_fmt_pt((lo.X, lo.Y, lo.Z))} to {_fmt_pt((hi.X, hi.Y, hi.Z))}.",
+                oid, otype, layer, measured=_round(far), threshold=_round(max_d), units=unit, certainty="certain"))
+        if union is None:
+            union = [lo.X, lo.Y, lo.Z, hi.X, hi.Y, hi.Z]
+        else:
+            union = [min(union[0], lo.X), min(union[1], lo.Y), min(union[2], lo.Z),
+                     max(union[3], hi.X), max(union[4], hi.Y), max(union[5], hi.Z)]
+    if union is not None:
+        diag = math.sqrt((union[3] - union[0]) ** 2 + (union[4] - union[1]) ** 2 + (union[5] - union[2]) ** 2)
+        if diag > max_t:
+            out.append(Finding(
+                sev, "extents",
+                f"Model extents span {length_str(_round(diag), unit)} ({sig_str(diag * scale / 1e6)} km, bounding-box "
+                f"diagonal), beyond the limit of {sig_str(max_t_mm / 1e6)} km. Look for stray objects far from the rest.",
+                None, "Model", None, measured=_round(diag), threshold=_round(max_t), units=unit, certainty="certain"))
+    return out
+
+
 def inspect_model(model, path: str, profile: Profile) -> FileResult:
     res = FileResult(path=path)
     settings = model.Settings
@@ -383,6 +553,20 @@ def inspect_model(model, path: str, profile: Profile) -> FileResult:
         findings += _check_mesh(rows, r["mesh"])
     if r["layers"].get("enabled", True):
         findings += _check_layers(rows, layers, r["layers"])
+    mm_rules = [k for k in ("short_edges", "extents") if r.get(k, {}).get("enabled", False)]
+    if mm_rules:
+        scale = mm_per_unit(res.units)
+        if scale is None:
+            what = "The model has no units" if res.units == "none" else f"Model units are {res.units or 'unset'}"
+            findings.append(Finding(
+                "warning", "mm_rules_skipped",
+                f"{what}, so {' and '.join(mm_rules)} "
+                "could not be checked (their limits are in millimeters). Set model units in Rhino and run again."))
+        else:
+            if "short_edges" in mm_rules:
+                findings += _check_short_edges(rows, r["short_edges"], scale, res.units)
+            if "extents" in mm_rules:
+                findings += _check_extents(rows, r["extents"], scale, res.units)
     # Errors first; otherwise keep the deterministic rule/file order.
     findings.sort(key=lambda f: SEVERITY_ORDER[f.severity])
     res.findings = findings

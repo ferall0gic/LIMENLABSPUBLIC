@@ -1,4 +1,4 @@
-# Built-in "default" profile for 3dm-inspect v0.1.
+# Built-in "default" profile for 3dm-inspect.
 # An office profile only needs the keys it changes; everything else
 # comes from the profile named in `extends` (default: "default").
 
@@ -19,6 +19,9 @@ absolute_tolerance_min = 0.0001    # in model units
 absolute_tolerance_max = 0.01      # in model units
 # angle_tolerance_min_degrees = 0.1   (unset = not checked)
 # angle_tolerance_max_degrees = 5.0   (unset = not checked)
+# absolute_tolerance_min_mm = 0.0001  (v0.2; in millimeters, converted to model units;
+# absolute_tolerance_max_mm = 0.08     when set, replaces the model-unit key on the same side)
+# tolerance_severity = "warning"      (v0.2; unset = use severity)
 
 [rules.mesh]
 # Off in the default profile; on in "strict".
@@ -35,3 +38,20 @@ flag_empty_layers = true
 flag_objects_without_layer = true
 flag_objects_on_default_layer = false
 default_layer_names = ["Default"]
+
+[rules.short_edges]
+# v0.2. Off here; on in "revit". Brep edges (and loose curves) shorter than
+# min_length_mm, converted to model units. Skipped when the model has no units.
+enabled = false
+severity = "error"
+min_length_mm = 0.79375            # ~1/32 in; see README "Checking files for Revit"
+include_curves = true              # also check loose curve objects (per segment)
+near_band = 0.10                   # also warn for lengths within +10% of the minimum
+
+[rules.extents]
+# v0.2. Off here; on in "revit". Bounding-box distance from the world origin
+# and total model extent, in millimeters converted to model units.
+enabled = false
+severity = "warning"
+max_distance_from_origin_mm = 16093440.0   # 10 miles
+max_total_extent_mm = 32186880.0           # 20 miles

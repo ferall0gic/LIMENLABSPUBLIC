@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "inspect3dm"
-version = "0.1.0"
+version = "0.2.0"
 description = "Headless, rule-based inspector for Rhino .3dm files"
 readme = "README.md"
 requires-python = ">=3.10"

@@ -211,7 +211,7 @@ def test_json_fields(fx, run_cli):
     code, out, _ = run_cli(fx["invalid_object.3dm"], "--format", "json")
     doc = json.loads(out)
     assert doc["tool"] == "3dm-inspect"
-    assert doc["tool_version"] == "0.1.0"
+    assert doc["tool_version"] == "0.2.0"
     assert doc["rhino3dm_version"].startswith("8.")
     assert doc["validation_basis"] == "openNURBS via rhino3dm; may differ from Rhino Check"
     assert doc["profile"] == "default"
@@ -249,7 +249,7 @@ def test_single_file_markdown(fx, run_cli):
     _, out, _ = run_cli(fx["tolerance_low.3dm"])
     lines = out.splitlines()
     assert lines[0] == "Result: pass. 1 file inspected (1 pass, 0 fail); 0 errors, 1 warning."
-    assert lines[2].startswith("3dm-inspect 0.1.0, rhino3dm 8.")
+    assert lines[2].startswith("3dm-inspect 0.2.0, rhino3dm 8.")
     assert "## Files" not in out  # no index in single-file mode
     assert "Angle tolerance: 1 degree." in out
     assert "Absolute tolerance: 0.0000001 meters." in out
@@ -263,7 +263,7 @@ def test_folder_markdown_index_before_sections(folder, run_cli):
     _, out, _ = run_cli(folder)
     lines = out.splitlines()
     assert lines[0].startswith("Result: fail. 3 files inspected (2 pass, 1 fail)")
-    assert lines[2].startswith("3dm-inspect 0.1.0")
+    assert lines[2].startswith("3dm-inspect 0.2.0")
     assert lines[4] == "## Files"
     assert lines[6].startswith("- pass: ") and lines[6].endswith("a_clean.3dm (0 errors, 0 warnings)")
     assert lines[8].startswith("- fail: ") and "b_invalid.3dm" in lines[8]
@@ -466,7 +466,7 @@ def test_help_contains_footer_and_exit_codes(run_cli):
 
 def test_version(run_cli):
     code, out, _ = run_cli("--version")
-    assert code == 0 and re.fullmatch(r"3dm-inspect 0\.1\.0 \(rhino3dm 8\.[\d.]+\)\n", out)
+    assert code == 0 and re.fullmatch(r"3dm-inspect 0\.2\.0 \(rhino3dm 8\.[\d.]+\)\n", out)
 
 
 # --- installed entry point ---------------------------------------------------------------
