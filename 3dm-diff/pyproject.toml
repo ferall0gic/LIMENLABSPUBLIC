@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "diff3dm"
+version = "0.1.0"
+description = "Headless, ID-based diff of two Rhino .3dm files (objects, layers, settings)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["rhino3dm>=8,<9"]
+
+[project.urls]
+Homepage = "https://github.com/ferall0gic/LIMENLABSPUBLIC"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+3dm-diff = "diff3dm.cli:entry"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
