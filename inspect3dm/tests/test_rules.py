@@ -85,6 +85,7 @@ def test_units_none_warns(fx, default):
     assert res.units == "none"
 
 
+@pytest.mark.skipif(not mf.CAN_SET_UNITS, reason=mf.NEEDS_UNIT_SETTER)
 def test_units_not_allowed_by_office_profile(fx, office):
     res = inspect_file(str(fx["tolerance_low.3dm"]), office)  # meters is allowed
     assert "units" not in rules_of(res)
@@ -189,6 +190,7 @@ def test_object_on_named_layer_passes_strict(fx, strict):
     assert "object_on_default_layer" not in rules_of(inspect_file(str(fx["clean.3dm"]), strict))
 
 
+@pytest.mark.skipif(not mf.CAN_SET_UNITS, reason=mf.NEEDS_UNIT_SETTER)
 def test_errors_sorted_before_warnings(fx, tmp_path, default):
     m = mf.invalid_object_model()
     mf._layer(m, "A-EMPTY")

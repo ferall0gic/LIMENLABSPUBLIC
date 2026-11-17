@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+import rhino3dm
+
 ROOT = Path(__file__).resolve().parents[1]
 README = (ROOT / "README.md").read_text(encoding="utf-8")
 
@@ -69,6 +72,8 @@ def test_readme_documents_run_result_words():
     assert "Result: incomplete." in README
 
 
+@pytest.mark.skipif(not rhino3dm.__version__.startswith("8."),
+                    reason="README sample output was recorded with rhino3dm 8")
 def test_readme_sample_output_matches_real_run(run_cli, monkeypatch):
     monkeypatch.chdir(ROOT)
     code, out, _ = run_cli("samples/sample.3dm")

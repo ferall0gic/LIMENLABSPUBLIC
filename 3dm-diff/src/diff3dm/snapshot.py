@@ -11,6 +11,8 @@ from typing import Any
 
 import rhino3dm
 
+from . import _rh
+
 
 class ReadError(Exception):
     """A file could not be read. The message is user-facing."""
@@ -44,7 +46,7 @@ def _bbox(geom) -> tuple[float, float, float, float, float, float] | None:
     if geom is None:
         return None
     try:
-        bb = geom.GetBoundingBox()  # no-arg form; GetBoundingBox(True) raises in rhino3dm 8 (#721)
+        bb = _rh.bbox(geom)
     except Exception:
         return None
     if bb is None or not bb.IsValid:
@@ -106,7 +108,7 @@ def load_snapshot(path: str) -> Snapshot:
         raise ReadError(f"'{path}' is a folder. Pass a .3dm file.")
     if p.stat().st_size == 0:
         raise ReadError(f"'{path}' is empty (0 bytes).")
-    model = rhino3dm.File3dm.Read(str(p))
+    model = _rh.read_model(rhino3dm, str(p))
     if model is None:
         raise ReadError(f"'{path}' is not a readable .3dm file (or is truncated).")
 
@@ -116,14 +118,7 @@ def load_snapshot(path: str) -> Snapshot:
         "absolute_tolerance": float(s.ModelAbsoluteTolerance),
         "angle_tolerance_degrees": round(float(s.ModelAngleToleranceDegrees), 9),
     }
-    doc_text: dict[str, str] = {}
-    try:
-        strings = model.Strings
-        for i in range(len(strings)):
-            k, v = strings[i]
-            doc_text[str(k)] = str(v)
-    except Exception:
-        pass
+    doc_text: dict[str, str] = dict(_rh.document_strings(model))
 
     snap = Snapshot(path=str(path), settings=settings, document_text=doc_text)
     index_to_path: dict[int, str] = {}
@@ -133,11 +128,11 @@ def load_snapshot(path: str) -> Snapshot:
         index_to_path[i] = full
         c = tuple(int(x) for x in layer.Color)
         snap.layers[str(layer.Id)] = LayerRec(str(layer.Id), layer.Name or "", full, c,
-                                              bool(layer.Visible), bool(layer.Locked))
+                                              _rh.layer_visible(layer), _rh.layer_locked(layer))
     for obj in model.Objects:
         geom = obj.Geometry
         attrs = obj.Attributes
-        oid = str(attrs.Id)
+        oid = _rh.object_id(attrs)
         snap.objects[oid] = ObjectRec(
             id=oid,
             type=type(geom).__name__ if geom is not None else "Unknown",

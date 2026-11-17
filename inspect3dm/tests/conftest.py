@@ -14,6 +14,11 @@ import make_fixtures  # noqa: E402
 @pytest.fixture(scope="session")
 def fx(tmp_path_factory):
     """All rule fixtures, generated with rhino3dm into a fresh folder."""
+    prebuilt = os.environ.get("INSPECT3DM_FIXTURES")
+    if prebuilt:
+        # Fixtures built earlier by scripts/make_fixtures.py, e.g. under rhino3dm 8 for a
+        # rhino3dm 9 test run (9.2 cannot set ModelUnitSystem from Python).
+        return {p.name: p for p in sorted(Path(prebuilt).glob("*.3dm"))}
     out = tmp_path_factory.mktemp("fixtures")
     return make_fixtures.build_all(out)
 

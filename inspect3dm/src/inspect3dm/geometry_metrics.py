@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import math
 
+from ._rh import control_point_xyzw
+
 
 def _dist(a, b) -> float:
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2)
@@ -55,11 +57,10 @@ def control_polygon_length(nurbs) -> float | None:
     prev = None
     total = 0.0
     for i in range(len(pts)):
-        p = pts[i]
-        w = p.W
+        x, y, z, w = control_point_xyzw(pts[i])
         if not (w > 0):
             return None
-        cur = (p.X / w, p.Y / w, p.Z / w)  # rhino3dm returns homogeneous (x*w, y*w, z*w, w)
+        cur = (x / w, y / w, z / w)  # rhino3dm returns homogeneous (x*w, y*w, z*w, w)
         if prev is not None:
             total += _dist(prev, cur)
         prev = cur

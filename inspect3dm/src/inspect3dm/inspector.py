@@ -11,11 +11,13 @@ from typing import Any, Iterable
 
 import rhino3dm
 
+from . import _rh
 from .geometry_metrics import curve_length_bounds, midpoint
 from .profile import Profile
 from .units import degrees_str, length_str, mm_per_unit, sig_str, unit_name, unit_display
 
-SEVERITY_ORDER = {"error": 0, "warning": 1}
+SEVERITY_ORDER = {"error": 0, "warning": 1, "info": 2}
+# "info" findings never count as errors or warnings and never fail a run.
 
 # Rhino commands a user can run next, per finding rule (pointers only).
 NEXT_STEPS = {
@@ -30,7 +32,7 @@ NEXT_STEPS = {
 
 @dataclass(frozen=True)
 class Finding:
-    severity: str  # "error" | "warning"
+    severity: str  # "error" | "warning" | "info"
     rule: str
     message: str
     object_id: str | None = None
@@ -91,7 +93,7 @@ class FileResult:
         if fail_on == "never":
             return False
         if fail_on == "warning":
-            return bool(self.findings)
+            return self.errors > 0 or self.warnings > 0
         return self.errors > 0
 
 
@@ -126,7 +128,7 @@ class RunResult:
         """Run-level result: pass, fail, report, or incomplete."""
         if any(f.status == "unreadable" for f in self.files):
             return "incomplete"
-        if self.fail_on == "never" and any(f.findings for f in self.files):
+        if self.fail_on == "never" and any(f.errors or f.warnings for f in self.files):
             return "report"
         if any(f.meets(self.fail_on) for f in self.files):
             return "fail"
@@ -210,7 +212,7 @@ def _read(path: str) -> tuple[Any | None, FileResult | None]:
         return None, _unreadable(path, f"{exc.strerror or 'the file could not be opened'}. Check the path.")
     if not head:
         return None, _unreadable(path, "the file is empty (0 bytes). Check that the export completed.")
-    model = rhino3dm.File3dm.Read(str(p))
+    model = _rh.read_model(rhino3dm, str(p))
     if model is None:
         return None, _unreadable(
             path,
@@ -287,7 +289,17 @@ def _object_rows(model, layers):
         attrs = obj.Attributes
         idx = attrs.LayerIndex
         layer = by_index.get(idx)
-        yield obj, geom, str(attrs.Id), type(geom).__name__ if geom is not None else "Unknown", idx, layer
+        yield obj, geom, _rh.object_id(attrs), type(geom).__name__ if geom is not None else "Unknown", idx, layer
+
+
+def _tool_error(check: str, exc: BaseException, oid, otype, layer) -> Finding:
+    """Info finding for a check that could not be evaluated on one object.
+
+    Replaces silent skips: the user sees that the object was not checked.
+    """
+    return Finding("info", "tool_error",
+                   f"Could not evaluate {check} for this object ({type(exc).__name__}); it was not checked. "
+                   "Please report this case with your rhino3dm version.", oid, otype, layer)
 
 
 def _check_validity(rows, rules) -> list[Finding]:
@@ -298,9 +310,10 @@ def _check_validity(rows, rules) -> list[Finding]:
             out.append(Finding(sev, "validity", "Object has no readable geometry.", oid, otype, layer))
             continue
         try:
-            ok, log = geom.IsValidWithLog
-        except Exception:  # pragma: no cover - defensive; rhino3dm exposes a property
-            ok, log = geom.IsValid, ""
+            ok, log = _rh.validity(geom)
+        except Exception as exc:
+            out.append(_tool_error("validity", exc, oid, otype, layer))
+            continue
         if not ok:
             msg = (log or "").strip() or "Object is not valid (openNURBS gave no message)."
             out.append(Finding(sev, "validity", msg, oid, otype, layer))
@@ -501,8 +514,9 @@ def _check_extents(rows, rules, scale: float, unit: str) -> list[Finding]:
         if geom is None:
             continue
         try:
-            bb = geom.GetBoundingBox()  # no-arg form; GetBoundingBox(True) raises (rhino3dm#721)
-        except Exception:
+            bb = _rh.bbox(geom)
+        except Exception as exc:
+            out.append(_tool_error("extents", exc, oid, otype, layer))
             continue
         if bb is None or not bb.IsValid:
             continue

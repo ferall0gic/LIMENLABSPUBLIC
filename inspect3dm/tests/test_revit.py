@@ -9,6 +9,7 @@ import json
 import math
 
 import pytest
+import make_fixtures
 import rhino3dm as r
 
 from inspect3dm import inspect_file, load_profile
@@ -210,12 +211,13 @@ def test_tolerance_above_tenth_of_short_curve(fx):
     assert "above the configured maximum of 0.079375 millimeters" in fs[0].message
 
 
+@pytest.mark.skipif(not make_fixtures.CAN_SET_UNITS, reason=make_fixtures.NEEDS_UNIT_SETTER)
 def test_mm_tolerance_converts_for_meter_files(tmp_path):
     m = r.File3dm()
     m.Settings.ModelUnitSystem = r.UnitSystem.Meters
     m.Settings.ModelAbsoluteTolerance = 0.001  # 1 mm
     path = tmp_path / "m.3dm"
-    m.Write(str(path), 8)
+    make_fixtures.write_model(m, path)
     fs = inspect_file(str(path), REVIT).findings
     tol = by_rule(fs, "tolerance_range")
     assert len(tol) == 1

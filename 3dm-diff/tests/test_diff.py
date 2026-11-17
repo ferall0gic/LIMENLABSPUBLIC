@@ -158,12 +158,12 @@ def test_textconv_shows_changes_as_line_diff(fx, run):
 def test_large_model_is_fast(tmp_path):
     import time
     m = r.File3dm()
-    lay = r.Layer(); lay.Name = "A"; li = m.Layers.Add(lay)
+    lay = r.Layer(); lay.Name = "A"; li = mf.add_layer(m, lay)
     for i in range(2000):
-        a = r.ObjectAttributes(); a.LayerIndex = li; a.Id = uuid.UUID(int=i + 1)
+        a = r.ObjectAttributes(); a.LayerIndex = li; mf.set_object_id(a, uuid.UUID(int=i + 1))
         m.Objects.AddBrep(mf._box(i * 20, 0, 0, 10, 10, 10), a)
     p = tmp_path / "big.3dm"
-    m.Write(str(p), 8)
+    mf.write_model(m, p)
     t = time.perf_counter()
     d = diff_snapshots(load_snapshot(str(p)), load_snapshot(str(p)))
     assert d.is_empty and d.unchanged_objects == 2000

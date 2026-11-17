@@ -6,10 +6,60 @@ models are used. Run:  python scripts/make_fixtures.py <output-folder>
 
 from __future__ import annotations
 
+import math
 import sys
 from pathlib import Path
 
 import rhino3dm as r
+
+
+# ---- rhino3dm 8.x / 9.x neutral helpers (fixtures only; see src/*/_rh.py for the tool side)
+
+def add_layer(m, layer) -> int:
+    """Add a layer and return its index (9.x Layers.Add returns None)."""
+    idx = m.Layers.Add(layer)
+    return len(m.Layers) - 1 if idx is None else idx
+
+
+def set_object_id(attrs, oid) -> None:
+    if hasattr(attrs, "ObjectId"):
+        attrs.ObjectId = oid
+    else:
+        attrs.Id = oid
+
+
+def set_angle_tolerance_degrees(settings, degrees: float) -> None:
+    """9.x has no Degrees setter; Radians works on both majors."""
+    settings.ModelAngleToleranceRadians = math.radians(degrees)
+
+
+def box_brep(bb):
+    """Box Brep from a BoundingBox (9.x has no Brep.CreateFromBoundingBox)."""
+    if hasattr(r.Brep, "CreateFromBoundingBox"):
+        return r.Brep.CreateFromBoundingBox(bb)
+    return r.Brep.CreateFromBox(r.Box(bb))
+
+
+def _can_set_units() -> bool:
+    try:
+        r.File3dm().Settings.ModelUnitSystem = r.UnitSystem.Millimeters
+        return True
+    except AttributeError:  # rhino3dm 9.2.0b0/b1: ModelUnitSystem has no setter
+        return False
+
+
+CAN_SET_UNITS = _can_set_units()
+NEEDS_UNIT_SETTER = "this rhino3dm cannot set ModelUnitSystem; build fixtures under rhino3dm 8"
+
+
+def write_model(model, path, version: int = 8) -> bool:
+    """Write a v8 archive where the reader supports it; 9.x writes only its own version (0)."""
+    try:
+        if model.Write(str(path), version):
+            return True
+    except (TypeError, ValueError):
+        pass
+    return bool(model.Write(str(path), 0))
 
 ARCHIVE_VERSION = 8
 
@@ -18,7 +68,7 @@ def _model(units=r.UnitSystem.Millimeters, tol=0.001, angle_deg=1.0):
     m = r.File3dm()
     m.Settings.ModelUnitSystem = units
     m.Settings.ModelAbsoluteTolerance = tol
-    m.Settings.ModelAngleToleranceDegrees = angle_deg
+    set_angle_tolerance_degrees(m.Settings, angle_deg)
     return m
 
 
@@ -27,7 +77,7 @@ def _layer(m, name, parent=None):
     layer.Name = name
     if parent is not None:
         layer.ParentLayerId = m.Layers[parent].Id
-    return m.Layers.Add(layer)
+    return add_layer(m, layer)
 
 
 def _attrs(layer_index, name=None):
@@ -109,7 +159,7 @@ def no_units_model():
 
 def wide_angle_model():
     m = clean_model()
-    m.Settings.ModelAngleToleranceDegrees = 10.0
+    set_angle_tolerance_degrees(m.Settings, 10.0)
     return m
 
 
@@ -192,7 +242,7 @@ FIXTURES = {
 # ---- v0.2 "revit" profile fixtures ---------------------------------------------
 
 def _box(m, layer_index, x0, y0, z0, dx, dy, dz):
-    brep = r.Brep.CreateFromBoundingBox(r.BoundingBox(x0, y0, z0, x0 + dx, y0 + dy, z0 + dz))
+    brep = box_brep(r.BoundingBox(x0, y0, z0, x0 + dx, y0 + dy, z0 + dz))
     return m.Objects.AddBrep(brep, _attrs(layer_index))
 
 
@@ -293,7 +343,7 @@ REVIT_FIXTURES = {
 
 def write(model, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    if not model.Write(str(path), ARCHIVE_VERSION):
+    if not write_model(model, path, ARCHIVE_VERSION):
         raise RuntimeError(f"rhino3dm could not write {path}")
     return path
 

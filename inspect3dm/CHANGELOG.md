@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased (work in progress on branch `rhino9-compat`; not released)
+
+Changed
+- rhino3dm 9.x readiness: every rhino3dm call that changed shape in 9.x goes through a small feature-detecting module (`_rh.py`). The dependency pin stays `rhino3dm>=8,<9`; 9.x is pre-release.
+- A check that cannot be evaluated on an object (validity, extents bounding box) is now reported as an `info` finding with rule `tool_error` instead of being skipped silently. Under rhino3dm 9.2 the previous code would have dropped every openNURBS validity message and every bounding box without a word. `info` findings never count as errors or warnings and never change the exit code.
+
+Tests
+- Fake-based tests for both API shapes; fixture script works under rhino3dm 8 and 9. `INSPECT3DM_FIXTURES=<folder>` runs the suite on fixtures built earlier (rhino3dm 9.2.0b0/b1 cannot set `ModelUnitSystem` from Python).
+- Box run, synthetic fixtures: rhino3dm 8.35.0 159 passed; rhino3dm 9.2.0b1 155 passed, 4 skipped (unit-setter and README-sample tests).
+
 ## 0.2.0 (2026-11-15)
 
 Added
