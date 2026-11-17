@@ -57,6 +57,8 @@ Status: fail. 1 error, 1 warning. 2 objects, 2 layers.
 
 Units: millimeters. Absolute tolerance: 0.001 millimeters. Angle tolerance: 1 degree.
 
+File format: Rhino 8 (archive version 80).
+
 | Severity | Rule | Object ID | Type | Layer | Message |
 |---|---|---|---|---|---|
 | Error | validity | 97792e56-e576-db4f-af5d-79619c8905ad | LineCurve | A-WALL | Line points are coincident. |

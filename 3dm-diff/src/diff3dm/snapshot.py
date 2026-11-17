@@ -98,6 +98,9 @@ class Snapshot:
     document_text: dict[str, str]
     layers: dict[str, LayerRec] = field(default_factory=dict)
     objects: dict[str, ObjectRec] = field(default_factory=dict)
+    # Archive provenance (v0.1.1): archive_version, rhino_version, created_by,
+    # last_edited_by, newer_than_reader.
+    archive: dict[str, Any] = field(default_factory=dict)
 
 
 def load_snapshot(path: str) -> Snapshot:
@@ -120,7 +123,8 @@ def load_snapshot(path: str) -> Snapshot:
     }
     doc_text: dict[str, str] = dict(_rh.document_strings(model))
 
-    snap = Snapshot(path=str(path), settings=settings, document_text=doc_text)
+    snap = Snapshot(path=str(path), settings=settings, document_text=doc_text,
+                    archive=_rh.archive_provenance(rhino3dm, str(p), model))
     index_to_path: dict[int, str] = {}
     for i in range(len(model.Layers)):
         layer = model.Layers[i]

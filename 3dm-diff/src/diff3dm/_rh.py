@@ -16,6 +16,7 @@ Known differences (rhino3dm docs/migrating-to-9, branch 9.x, read 2026-11-17):
 - NurbsCurve control point .W    -> .Weight (X, Y, Z stay homogeneous in both)
 - File3dm.Strings                no len()/indexing in 9.x -> Count, GetKey(i), GetValue(i)
 - File3dm.Read(missing path)     returns None in 8.x, raises FileNotFoundError in 9.x
+- File3dm.ReadArchiveVersion(missing path)  returns 0 in 8.x, raises FileNotFoundError in 9.x
 """
 
 from __future__ import annotations
@@ -74,3 +75,48 @@ def document_strings(model) -> list[tuple[str, str]]:
     if hasattr(table, "GetKey"):
         return [(str(table.GetKey(i)), str(table.GetValue(i))) for i in range(table.Count)]
     return [(str(k), str(v)) for k, v in (table[i] for i in range(len(table)))]
+
+
+def reader_major(rhino3dm_module) -> int | None:
+    """Major version of the installed rhino3dm (8 for 8.35.0, 9 for 9.2.0b1), or None."""
+    try:
+        return int(str(getattr(rhino3dm_module, "__version__", "")).split(".")[0])
+    except ValueError:
+        return None
+
+
+def archive_version(rhino3dm_module, path: str) -> int | None:
+    """openNURBS archive version from the file header (e.g. 80, 90), or None if unknown.
+
+    Read before File3dm.Read so the version is known even when the full read fails.
+    """
+    try:
+        v = int(rhino3dm_module.File3dm.ReadArchiveVersion(str(path)))
+    except (FileNotFoundError, OSError, TypeError, ValueError):
+        return None
+    return v if v > 0 else None
+
+
+def rhino_version(archive: int | None) -> int | None:
+    """Rhino major for an archive version: 90 -> 9. Versions below 50 (Rhino 1-4) are returned as stored."""
+    if archive is None:
+        return None
+    return archive // 10 if archive >= 50 else archive
+
+
+def archive_provenance(rhino3dm_module, path: str, model=None) -> dict:
+    """Where the file came from: archive version, Rhino major, and the creator strings.
+
+    created_by / last_edited_by are "" when the file does not record them
+    (files written by rhino3dm leave them empty).
+    """
+    av = archive_version(rhino3dm_module, path)
+    rv = rhino_version(av)
+    reader = reader_major(rhino3dm_module)
+    return {
+        "archive_version": av,
+        "rhino_version": rv,
+        "created_by": str(getattr(model, "CreatedBy", "") or "") if model is not None else "",
+        "last_edited_by": str(getattr(model, "LastEditedBy", "") or "") if model is not None else "",
+        "newer_than_reader": bool(rv is not None and reader is not None and av >= 50 and rv > reader),
+    }

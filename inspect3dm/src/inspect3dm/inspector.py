@@ -71,6 +71,9 @@ class FileResult:
     object_count: int = 0
     layer_count: int = 0
     findings: list[Finding] = field(default_factory=list)
+    # Archive provenance (v0.2.1): archive_version, rhino_version, created_by,
+    # last_edited_by, newer_than_reader. None only for results built without a path read.
+    archive: dict[str, Any] | None = None
 
     @property
     def errors(self) -> int:
@@ -587,11 +590,25 @@ def inspect_model(model, path: str, profile: Profile) -> FileResult:
     return res
 
 
+def _archive_finding(archive: dict[str, Any]) -> Finding:
+    rv = archive["rhino_version"]
+    return Finding(
+        "info", "archive_newer_than_reader",
+        f"This is a Rhino {rv} file (archive version {archive['archive_version']}), read with "
+        f"rhino3dm {getattr(rhino3dm, '__version__', 'unknown')}. Objects or data types added in Rhino {rv} "
+        "may be skipped or misread, so they may not have been checked.")
+
+
 def inspect_file(path: str, profile: Profile, fail_on: str = "error") -> FileResult:
     model, bad = _read(path)
+    archive = _rh.archive_provenance(rhino3dm, path, model) if Path(path).is_file() else None
     if bad is not None:
+        bad.archive = archive
         return bad
     res = inspect_model(model, path, profile)
+    res.archive = archive
+    if archive and archive["newer_than_reader"]:
+        res.findings.append(_archive_finding(archive))
     status_threshold = "error" if fail_on == "never" else fail_on
     res.status = "fail" if res.meets(status_threshold) else "pass"
     return res

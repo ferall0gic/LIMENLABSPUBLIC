@@ -19,6 +19,10 @@ FOOTER = (
 
 RHINO3DM_VERSION = getattr(rhino3dm, "__version__", "unknown")
 
+# JSON report schema. 1.0 = inspect3dm 0.1-0.2.0 (field not emitted).
+# 1.1 = adds "schema_version" and the per-file "file" block (archive provenance). Additive only.
+SCHEMA_VERSION = "1.1"
+
 _ANSI = {"red": "\033[31m", "yellow": "\033[33m", "green": "\033[32m", "bold": "\033[1m", "reset": "\033[0m"}
 _COLOR_FOR = {"error": "red", "fail": "red", "unreadable": "red", "incomplete": "red", "warning": "yellow", "report": "yellow", "pass": "green"}
 
@@ -78,6 +82,18 @@ def _file_settings_line(f: FileResult) -> str:
     )
 
 
+def archive_line(archive: dict[str, Any] | None) -> str | None:
+    """One text line on where the file came from, or None when the version is unknown."""
+    if not archive or archive.get("archive_version") is None:
+        return None
+    line = f"File format: Rhino {archive['rhino_version']} (archive version {archive['archive_version']})."
+    if archive.get("created_by"):
+        line += f" Created by: {archive['created_by']}."
+    if archive.get("last_edited_by"):
+        line += f" Last edited by: {archive['last_edited_by']}."
+    return line
+
+
 def _file_index_line(f: FileResult, color: bool) -> str:
     status = _paint(f.status, f.status, color)
     if f.status == "unreadable":
@@ -94,12 +110,17 @@ def render_markdown(run: RunResult, color: bool = False) -> str:
     for f in run.files:
         lines += [f"## {f.path}", ""]
         status = _paint(f.status, f.status, color)
+        prov = archive_line(f.archive)
         if f.status == "unreadable":
             lines += [f"Status: {status}. {f.message}", ""]
+            if prov:
+                lines += [prov, ""]
             continue
         lines += [f"Status: {status}. {_counts(f.errors, f.warnings)}. "
                   f"{_plural(f.object_count, 'object')}, {_plural(f.layer_count, 'layer')}.", ""]
         lines += [_file_settings_line(f), ""]
+        if prov:
+            lines += [prov, ""]
         if f.findings:
             lines += ["| Severity | Rule | Object ID | Type | Layer | Message |",
                       "|---|---|---|---|---|---|"]
@@ -120,6 +141,8 @@ def render_markdown(run: RunResult, color: bool = False) -> str:
 
 def _file_dict(f: FileResult, include_findings: bool = True) -> dict[str, Any]:
     d: dict[str, Any] = {"path": f.path, "status": f.status}
+    if f.archive is not None:
+        d["file"] = {k: f.archive[k] for k in ("archive_version", "rhino_version", "created_by", "last_edited_by")}
     if f.status == "unreadable":
         d["message"] = f.message
     else:
@@ -143,6 +166,7 @@ def _file_dict(f: FileResult, include_findings: bool = True) -> dict[str, Any]:
 
 def run_dict(run: RunResult, include_findings: bool = True, generated_at: str | None = None) -> dict[str, Any]:
     return {
+        "schema_version": SCHEMA_VERSION,
         "tool": TOOL_NAME,
         "tool_version": __version__,
         "rhino3dm_version": RHINO3DM_VERSION,

@@ -4,7 +4,9 @@
 
 - rhino3dm 9.x readiness through the same `_rh.py` module as inspect3dm (layer visibility/lock, object IDs, bounding boxes, document text, missing-file reads). Pin stays `rhino3dm>=8,<9`.
 - Fixed: document user text was silently read as empty under rhino3dm 9.2 (the string table has no `len`/indexing there). Errors reading document text are no longer swallowed.
-- `DIFF3DM_FIXTURES=<folder>` runs the suite on prebuilt fixtures. Box run: rhino3dm 8.35.0 and 9.2.0b1 both 27 passed (9.x on fixtures built under 8.35).
+- Archive provenance: the Markdown header shows each file's Rhino version (`Old: a.3dm (Rhino 8 file, archive version 80)`), and a `Note:` line appears when a file is newer than the installed rhino3dm. JSON gains `old_file` / `new_file` blocks, `notes`, and `schema_version` `"1.1"` (additive only). Notes never change the exit code. `--textconv` output is unchanged.
+- A same-content Rhino 8 and Rhino 9 archive of one line diff as identical (geometry hashes match across archive versions on this sample; `tests/data/line_v9.3dm`, written by rhino3dm 9.2.0b1).
+- `DIFF3DM_FIXTURES=<folder>` runs the suite on prebuilt fixtures. Box run: rhino3dm 8.35.0 and 9.2.0b1 both 31 passed (9.x on fixtures built under 8.35).
 
 ## 0.1.0 (2026-11-15)
 

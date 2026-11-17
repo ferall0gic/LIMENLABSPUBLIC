@@ -13,6 +13,10 @@ from .diff import Diff
 from .snapshot import Snapshot
 
 RHINO3DM_VERSION = getattr(rhino3dm, "__version__", "unknown")
+
+# JSON schema. 1.0 = 3dm-diff 0.1.0 (field not emitted).
+# 1.1 = adds "schema_version", "old_file"/"new_file" provenance blocks and "notes". Additive only.
+SCHEMA_VERSION = "1.1"
 NOTE = ("Objects and layers are matched by ID. \"geometry\" means the openNURBS serialization differs; "
         "it does not say how much the shape changed. Read with rhino3dm; files were not modified.")
 
@@ -31,6 +35,30 @@ def _cell(v: Any) -> str:
 
 def _short(h: Any) -> Any:
     return h[:12] if isinstance(h, str) and len(h) == 64 else h
+
+
+def _fmt(s: Snapshot) -> str:
+    a = s.archive or {}
+    if a.get("archive_version") is None:
+        return ""
+    return f" (Rhino {a['rhino_version']} file, archive version {a['archive_version']})"
+
+
+def archive_notes(d: Diff) -> list[str]:
+    """Notices for files newer than the installed rhino3dm. Informational; never change the exit code."""
+    out = []
+    for label, s in (("Old", d.old), ("New", d.new)):
+        a = s.archive or {}
+        if a.get("newer_than_reader"):
+            out.append(f"{label} file is a Rhino {a['rhino_version']} file read with rhino3dm {RHINO3DM_VERSION}. "
+                       f"Objects or data types added in Rhino {a['rhino_version']} may be skipped or misread, "
+                       "so differences in them may not be shown.")
+    return out
+
+
+def _file_block(s: Snapshot) -> dict[str, Any]:
+    a = s.archive or {}
+    return {k: a.get(k) for k in ("archive_version", "rhino_version", "created_by", "last_edited_by")}
 
 
 def summary_line(d: Diff) -> str:
@@ -54,7 +82,10 @@ def summary_line(d: Diff) -> str:
 
 def render_markdown(d: Diff) -> str:
     L = [summary_line(d), "", f"{TOOL_NAME} {__version__}, rhino3dm {RHINO3DM_VERSION}.",
-         f"Old: {d.old.path}", f"New: {d.new.path}", ""]
+         f"Old: {d.old.path}{_fmt(d.old)}", f"New: {d.new.path}{_fmt(d.new)}", ""]
+    notes = archive_notes(d)
+    if notes:
+        L += [f"Note: {n}" for n in notes] + [""]
     if d.settings:
         L += ["## Document settings", "", "| Setting | Old | New |", "|---|---|---|"]
         L += [f"| {k} | {_cell(num(a))} | {_cell(num(b))} |" for k, (a, b) in d.settings.items()]
@@ -105,8 +136,10 @@ def render_json(d: Diff) -> str:
         return {"id": o.id, "type": o.type, "layer": o.layer, "name": o.name,
                 "user_text": dict(o.user_text), "geometry_hash": o.geometry_hash}
     doc = {
+        "schema_version": SCHEMA_VERSION,
         "tool": TOOL_NAME, "tool_version": __version__, "rhino3dm_version": RHINO3DM_VERSION,
-        "old": d.old.path, "new": d.new.path, "identical": d.is_empty, "summary": d.counts(),
+        "old": d.old.path, "new": d.new.path,
+        "old_file": _file_block(d.old), "new_file": _file_block(d.new), "notes": archive_notes(d), "identical": d.is_empty, "summary": d.counts(),
         "settings": {k: {"old": a, "new": b} for k, (a, b) in d.settings.items()},
         "document_text": {k: {"old": a, "new": b} for k, (a, b) in d.document_text.items()},
         "layers": {"added": d.layers_added, "removed": d.layers_removed, "changed": d.layers_changed},

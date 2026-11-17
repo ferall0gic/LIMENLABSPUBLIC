@@ -6,9 +6,14 @@ Changed
 - rhino3dm 9.x readiness: every rhino3dm call that changed shape in 9.x goes through a small feature-detecting module (`_rh.py`). The dependency pin stays `rhino3dm>=8,<9`; 9.x is pre-release.
 - A check that cannot be evaluated on an object (validity, extents bounding box) is now reported as an `info` finding with rule `tool_error` instead of being skipped silently. Under rhino3dm 9.2 the previous code would have dropped every openNURBS validity message and every bounding box without a word. `info` findings never count as errors or warnings and never change the exit code.
 
+Added
+- Archive provenance: each file in the report now says which Rhino version wrote it (`File format: Rhino 8 (archive version 80).`), plus "Created by" / "Last edited by" when the file records them. The version is read from the file header first, so it is reported even when the full read fails. JSON gains a per-file `file` block (`archive_version`, `rhino_version`, `created_by`, `last_edited_by`) and a top-level `schema_version` (`"1.1"`; earlier reports had no field and count as 1.0). Additive only.
+- `archive_newer_than_reader` `info` finding when the file is newer than the installed rhino3dm (for example a Rhino 9 file read with rhino3dm 8): objects or data types added in the newer Rhino may be skipped or misread. Never an error and never changes the exit code.
+
 Tests
 - Fake-based tests for both API shapes; fixture script works under rhino3dm 8 and 9. `INSPECT3DM_FIXTURES=<folder>` runs the suite on fixtures built earlier (rhino3dm 9.2.0b0/b1 cannot set `ModelUnitSystem` from Python).
-- Box run, synthetic fixtures: rhino3dm 8.35.0 159 passed; rhino3dm 9.2.0b1 155 passed, 4 skipped (unit-setter and README-sample tests).
+- Committed fixture `tests/data/line_v9.3dm` (one line, archive version 90, written by rhino3dm 9.2.0b1 with `scripts/make_v9_fixture.py`) so the rhino3dm 8 run exercises a Rhino 9 archive. Not a file saved by Rhino 9 itself.
+- Box run, synthetic fixtures: rhino3dm 8.35.0 169 passed; rhino3dm 9.2.0b1 165 passed, 4 skipped (unit-setter and README-sample tests).
 
 ## 0.2.0 (2026-11-15)
 
