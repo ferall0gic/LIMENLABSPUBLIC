@@ -9,8 +9,11 @@ Open-source research and tools for computational design and architectural softwa
 | [`inspect3dm`](inspect3dm/) | Checks `.3dm` files against a rule profile (validity, units, tolerances, meshes, layers, Revit import limits) | v0.2.0 |
 | [`3dm-diff`](3dm-diff/) | Compares two `.3dm` files by object and layer ID; Markdown/JSON report; `git diff` driver | v0.1.0 |
 | [`ghx-deps`](ghx-deps/) | Lists the plug-ins, components and file paths a Grasshopper `.ghx` needs; allowlist CI gate | v0.1.0 |
+| [`assembly-mcp`](assembly-mcp/) | Rhino/Revit MCP servers for assembly plans, inspection, small analyses and optional isolated live scratch boxes | v0.2.0a1 |
 
-All three are alpha, run headless without Rhino, are tested on synthetic files on Linux, and install from a checkout (no PyPI or Food4Rhino listing).
+The three file tools are alpha, run headless without Rhino, are tested on synthetic files on Linux, and install from a checkout (no PyPI or Food4Rhino listing).
+The new MCP alpha is tested headlessly on Windows with synthetic files and real MCP stdio calls.
+It reads saved Rhino files or exported Revit snapshots. Optional live mode has a separately tested scratch-only box lifecycle in Rhino 8.35 and Revit 2025.4; native assembly editing is not implemented.
 
 ## inspect3dm
 

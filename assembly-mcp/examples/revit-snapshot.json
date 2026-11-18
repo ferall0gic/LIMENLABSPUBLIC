@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "host": "revit",
+  "units": "mm",
+  "document_label": "Synthetic demonstration - not a native export",
+  "elements": [
+    {
+      "id": "synthetic-wall-001",
+      "name": "Demonstration wall",
+      "category": "Walls",
+      "type_name": "Demonstration type",
+      "bbox_mm": {"minimum": [0, 0, 0], "maximum": [3000, 200, 3200]}
+    }
+  ]
+}

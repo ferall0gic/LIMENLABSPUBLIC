@@ -1,0 +1,95 @@
+{
+  "date": "2026-11-18",
+  "scope": "Separate instances and newly created scratch models only",
+  "platform": "Windows",
+  "rhino_version": "8.35.26251.13001",
+  "revit_version": "2025.4",
+  "runs": [
+    {
+      "host": "rhino",
+      "checks": [
+        {
+          "tool": "live_context",
+          "initial_count": 0,
+          "passed": true
+        },
+        {
+          "tool": "live_create_scratch_box",
+          "native_dimensions_mm": [
+            100,
+            200,
+            300
+          ],
+          "passed": true
+        },
+        {
+          "tool": "live_create_scratch_box",
+          "refusal": "STALE_REVISION",
+          "passed": true
+        },
+        {
+          "tool": "live_delete_scratch_objects",
+          "refusal": "NOT_CREATED_BY_SESSION",
+          "passed": true
+        },
+        {
+          "tool": "live_delete_scratch_objects",
+          "final_count": 0,
+          "passed": true
+        },
+        {
+          "tool": "live_context",
+          "refusal": "BINDING_MISMATCH",
+          "passed": true
+        }
+      ],
+      "evidence": "live_rhino",
+      "passed": true
+    },
+    {
+      "host": "revit",
+      "checks": [
+        {
+          "tool": "live_context",
+          "initial_count": 0,
+          "passed": true
+        },
+        {
+          "tool": "live_create_scratch_box",
+          "native_dimensions_mm": [
+            100,
+            200,
+            300
+          ],
+          "passed": true
+        },
+        {
+          "tool": "live_create_scratch_box",
+          "refusal": "STALE_REVISION",
+          "passed": true
+        },
+        {
+          "tool": "live_delete_scratch_objects",
+          "refusal": "NOT_CREATED_BY_SESSION",
+          "passed": true
+        },
+        {
+          "tool": "live_delete_scratch_objects",
+          "final_count": 0,
+          "passed": true
+        },
+        {
+          "tool": "live_context",
+          "refusal": "BINDING_MISMATCH",
+          "passed": true
+        }
+      ],
+      "evidence": "live_revit",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "One box lifecycle per native host, not semantic assembly acceptance.",
+    "No real-project or physical-performance evidence."
+  ]
+}

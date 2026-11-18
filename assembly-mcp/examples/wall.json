@@ -1,0 +1,19 @@
+{
+  "units": "mm",
+  "assemblies": [
+    {
+      "id": "wall-demo",
+      "kind": "wall",
+      "area_m2": 9.6,
+      "quantity": 1,
+      "source_ids": [],
+      "layers": [
+        {"material": "demo timber", "role": "structure", "thickness_mm": 120},
+        {"material": "unspecified membrane", "role": "air_barrier", "thickness_mm": null},
+        {"material": "demo cavity", "role": "ventilation", "thickness_mm": 40},
+        {"material": "demo cladding", "role": "finish", "thickness_mm": 20}
+      ]
+    }
+  ],
+  "relationships": []
+}
