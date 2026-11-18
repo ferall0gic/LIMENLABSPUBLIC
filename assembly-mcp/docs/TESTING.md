@@ -1,6 +1,6 @@
 # Verification
 
-Tested on Windows, Python 3.12.11, MCP SDK 1.30.0 and rhino3dm 8.35.0.
+Tested on Windows, Python 3.12.14, MCP SDK 1.30.0 and rhino3dm 8.35.0.
 Run the projects separately: their independent suites use some of the same fixture names.
 
 ```text
