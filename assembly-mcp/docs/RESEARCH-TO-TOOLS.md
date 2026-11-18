@@ -31,8 +31,8 @@ approval credentials, model revision tokens or authorization to edit a model.
 - [MIT damped free oscillations](https://ocw.mit.edu/courses/8-01sc-classical-mechanics-fall-2016/mit8_01scs22_chapter23.pdf): amplitude and energy decay with explicit assumptions.
 - [Autodesk Revit units guide](https://help.autodesk.com/cloudhelp/2026/ENU/Revit-API/files/Revit_API_Developers_Guide/Introduction/Application_and_Document/Revit_API_Revit_API_Developers_Guide_Introduction_Application_and_Document_Units_html.html): export converts internal lengths to mm.
 
-## Next native-host milestone
+## Native-host milestone
 
-Native edits need explicit document binding, stale-revision refusal, inspectable geometry previews, human authorization,
-transaction failure recovery and scratch-host acceptance. None is exposed as a placeholder success tool in this version.
-Rhino/Revit installation and native tests must be recorded separately from headless tests.
+The optional live tools now demonstrate explicit scratch document binding, stale-revision refusal and a native box lifecycle.
+Full assembly edits still need inspectable geometry previews, human authorization and transaction failure recovery.
+No assembly commit/rollback is exposed as a placeholder success tool. Native checks are recorded separately from headless tests.

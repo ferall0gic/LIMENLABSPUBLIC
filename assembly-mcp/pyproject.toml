@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "limen-assembly-mcp"
-version = "0.1.0a1"
-description = "Small, read-only architectural assembly and spatial-analysis MCP tools"
+version = "0.2.0a1"
+description = "Architectural assembly MCP tools with optional isolated live scratch hosts"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -18,6 +18,7 @@ test = ["pytest>=8,<10"]
 [project.scripts]
 limen-rhino-mcp = "limen_assembly_mcp.server:rhino_main"
 limen-revit-mcp = "limen_assembly_mcp.server:revit_main"
+limen-mcp-scratch = "limen_assembly_mcp.live:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

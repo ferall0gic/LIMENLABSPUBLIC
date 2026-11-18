@@ -1,11 +1,14 @@
-# Assembly MCP tools — 0.1 alpha
+# Assembly MCP tools — 0.2 alpha
 
 Small architectural assembly, model inspection and spatial-analysis tools for MCP clients.
-Two stdio servers share the same nine tools: `limen-rhino-mcp` and `limen-revit-mcp`.
+Two stdio servers share nine offline tools: `limen-rhino-mcp` and `limen-revit-mcp`.
+An explicitly configured live scratch session adds four native tools (13 total).
 
-**Rhino reads saved `.3dm` files. Revit reads a JSON snapshot exported from Revit. Neither server controls a running application.**
+**Default mode:** Rhino reads saved `.3dm` files; Revit reads a JSON snapshot exported from Revit.
+**Optional live mode:** a separate Rhino/Revit process serves inspection and box creation/deletion in a new scratch document only.
 Assembly previews are inspectable data plans. They do not create native geometry, commit a change, or promise rollback.
-This first milestone is deliberately smaller than a modeling engine.
+The separate live box tools are a bounded native-host experiment, not a semantic assembly modeling engine.
+See [live setup and limitations](docs/LIVE.md).
 
 ## Install from this checkout
 
@@ -34,7 +37,7 @@ For an isolated Python environment, use the absolute path to its installed execu
 }
 ```
 
-Source binding happens at server startup. Tools cannot choose another path, run scripts, make network requests, or save models.
+Saved-file source binding happens at server startup. These nine offline tools cannot choose another path, run scripts, make network requests, or save models.
 If no source is bound, the planning and analysis tools still work; inspection/source checks return an error.
 Restart to bind another file. Inspection re-reads the file and returns its SHA-256: a changed saved file/export has a new hash.
 It cannot detect unsaved edits in the host application. Model/export contents are transmitted to the MCP client when inspected;
@@ -72,10 +75,11 @@ The included [synthetic snapshot](examples/revit-snapshot.json) is a hand-author
 
 ## Limits and evidence
 
-- Tests use synthetic `.3dm` files, synthetic Revit snapshots, mathematical controls, and the real MCP stdio client/server.
-  No live Rhino/Revit acceptance or physical testing is claimed.
-- No native `.rvt` reader. No Revit add-in installation, ExternalEvent execution, live document binding, or native transactions.
-- No geometry construction, joins, boolean openings, sections, drawings, sheet composition, PDFs, commit or rollback tools yet.
+- Headless tests use synthetic `.3dm` files, Revit snapshots, mathematical controls, emulated hosts, and the real MCP stdio client/server.
+- Live acceptance on 2026-11-18 covered **one native box lifecycle per host**, using separate Rhino 8.35 and Revit 2025.4 instances and newly created scratch files.
+  This is not native assembly, real-project, physical or cross-platform acceptance. See [verification](docs/TESTING.md).
+- No native `.rvt` file reader. Optional live Revit uses an installed scratch add-in and ExternalEvent/API-thread processing.
+- Native generation currently supports a scratch box only. No joins, boolean openings, sections, drawings, sheet composition, PDFs, assembly commit or rollback tools yet.
 - Connectivity is not architectural organization. Grid access is not circulation adequacy, accessibility or fire egress.
 - The decay model is `amplitude=exp(-pi*f*t/Q)`, `energy=amplitude^2`. Q is an assumption supplied by the caller.
   No floor, joint, support, thermal, acoustic or structural performance is established.

@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 build/
 dist/
+**/bin/
+**/obj/
 fixtures-out/
 *.3dmbak
 !samples/sample.3dm
